@@ -42,4 +42,8 @@ export const CLIENT_NAME_TO_PLATFORM: Record<string, PlatformId> = {
   "kimi-code": "kimi",
   "kimi": "kimi",
   "Kimi Code": "kimi",
+  // Issue #1255 — OpenCode 2.0.20 sends clientInfo.name = "opencode"
+  // on MCP initialize. Without this entry detectPlatform misses the
+  // handshake and can land on antigravity-cli via the config-dir probe.
+  "opencode": "opencode",
 };

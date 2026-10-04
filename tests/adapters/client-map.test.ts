@@ -78,6 +78,15 @@ describe("CLIENT_NAME_TO_PLATFORM", () => {
     expect(CLIENT_NAME_TO_PLATFORM["Kimi Code"]).toBe("kimi");
   });
 
+  // Issue #1255 — OpenCode 2.0.20 sends clientInfo.name = "opencode".
+  it('maps "opencode" to "opencode"', () => {
+    expect(CLIENT_NAME_TO_PLATFORM["opencode"]).toBe("opencode");
+  });
+
+  it('maps "Kilo Code" to "kilo"', () => {
+    expect(CLIENT_NAME_TO_PLATFORM["Kilo Code"]).toBe("kilo");
+  });
+
   it("returns undefined for unknown client name", () => {
     expect(CLIENT_NAME_TO_PLATFORM["some-unknown-client"]).toBeUndefined();
   });

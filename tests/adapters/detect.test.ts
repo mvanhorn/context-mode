@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { sep } from "node:path";
+import { homedir } from "node:os";
+import { join, sep } from "node:path";
 import {
   detectPlatform,
   getAdapter,
@@ -476,6 +477,15 @@ describe("detectPlatform", () => {
     expect(signal.platform).toBe("antigravity");
   });
 
+  it("clientInfo name opencode wins over CLAUDE_PROJECT_DIR and antigravity-cli override", () => {
+    process.env.CLAUDE_PROJECT_DIR = "/some/project";
+    process.env.CONTEXT_MODE_PLATFORM = "antigravity-cli";
+    const signal = detectPlatform({ name: "opencode", version: "2.0.20" });
+    expect(signal.platform).toBe("opencode");
+    expect(signal.confidence).toBe("high");
+    expect(signal.reason).toContain("clientInfo");
+  });
+
   it("invalid CONTEXT_MODE_PLATFORM is ignored", () => {
     process.env.CONTEXT_MODE_PLATFORM = "not-a-platform";
     process.env.CLAUDE_PROJECT_DIR = "/some/project";
@@ -639,6 +649,34 @@ describe("getAdapter", () => {
     const adapter = await getAdapter(signal.platform);
     expect(adapter.getSessionDir()).toContain(".pi");
     expect(adapter.getSessionDir()).not.toContain(".claude");
+  });
+
+  it("clientInfo 'opencode' resolves to the opencode adapter (issue #1255)", async () => {
+    // OpenCode 2.0.20 sends clientInfo.name = "opencode" on initialize.
+    // The high-confidence handshake must win before the config-dir probe,
+    // which can return antigravity-cli when Antigravity CLI markers exist.
+    const signal = detectPlatform({ name: "opencode", version: "2.0.20" });
+    expect(signal.platform).toBe("opencode");
+    expect(signal.confidence).toBe("high");
+    expect(signal.reason).toContain("clientInfo");
+
+    const adapter = await getAdapter(signal.platform);
+    expect(adapter).toBeInstanceOf(OpenCodeAdapter);
+
+    const sessionsDir = adapter.getSessionDir();
+    // getConfigDir() uses %APPDATA% on Windows and XDG/~/.config on POSIX.
+    // windows-latest CI does not contain ".config" in the session path.
+    let expectedDir: string;
+    if (process.platform === "win32") {
+      const configDir = process.env.APPDATA || join(homedir(), "AppData", "Roaming");
+      expectedDir = join(configDir, "opencode", "context-mode", "sessions");
+    } else {
+      const configDir = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+      expectedDir = join(configDir, "opencode", "context-mode", "sessions");
+    }
+    expect(sessionsDir).toBe(expectedDir);
+    expect(sessionsDir).toContain("opencode");
+    expect(sessionsDir).not.toContain(".gemini");
   });
 
   it("clientInfo 'omp-coding-agent' resolves to omp adapter (issue #542 rebrand)", async () => {
